@@ -1,0 +1,3 @@
+/new_disk/liuxh/RIFT++/CMakeFiles/rebuild_cache.dir
+/new_disk/liuxh/RIFT++/CMakeFiles/edit_cache.dir
+/new_disk/liuxh/RIFT++/CMakeFiles/RIFT.dir
