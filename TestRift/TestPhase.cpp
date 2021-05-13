@@ -4,6 +4,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/features2d.hpp> 
+#include <opencv2/calib3d.hpp>
 #include <iostream>
 
 
@@ -210,7 +211,7 @@ int main(int argc, char** argv)
         descriptors2.convertTo(descriptors2, CV_32F);
         matcher->knnMatch( descriptors1, descriptors2, knn_matches, 2 );
         
-        const float ratio_thresh = 0.8;
+        const float ratio_thresh = 1;
         std::vector<DMatch> good_matches;
         for (size_t i = 0; i < knn_matches.size(); i++)
         {
@@ -227,7 +228,57 @@ int main(int argc, char** argv)
                     Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
         //-- Show detected matches
         
-        imwrite(inputFolderName + "/match.jpg", img_matches);
+        imwrite(inputFolderName + "/match_no_ransac.jpg", img_matches);
+
+
+
+        //根据matches将特征点对齐,将坐标转换为float类型
+        vector<KeyPoint> R_keypoint01,R_keypoint02;
+        for (size_t i=0;i<good_matches.size();i++)   
+        {
+            R_keypoint01.push_back(keypoints1_left[good_matches[i].queryIdx]);
+            R_keypoint02.push_back(keypoints2_left[good_matches[i].trainIdx]);
+        }
+    
+        //坐标转换
+        vector<Point2f>p01,p02;
+        for (size_t i=0;i<good_matches.size();i++)
+        {
+            p01.push_back(R_keypoint01[i].pt);
+            p02.push_back(R_keypoint02[i].pt);
+        }
+    
+        //利用基础矩阵剔除误匹配点
+        vector<uchar> RansacStatus;
+        Mat Fundamental= findFundamentalMat(p01,p02,RansacStatus,FM_RANSAC);
+
+
+    
+        vector<KeyPoint> RR_keypoint01,RR_keypoint02;
+        vector<DMatch> RR_matches;            //重新定义RR_keypoint 和RR_matches来存储新的关键点和匹配矩阵
+        int index=0;
+        for (size_t i=0;i<good_matches.size();i++)
+        {
+            if (RansacStatus[i]!=0)
+            {
+                RR_keypoint01.push_back(R_keypoint01[i]);
+                RR_keypoint02.push_back(R_keypoint02[i]);
+                good_matches[i].queryIdx=index;
+                good_matches[i].trainIdx=index;
+                RR_matches.push_back(good_matches[i]);
+                index++;
+            }
+        }
+        Mat img_RR_matches;
+        drawMatches(image1_show,RR_keypoint01,image2_show,RR_keypoint02,RR_matches,img_RR_matches,Scalar::all(-1),
+                    Scalar::all(-1), std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+        imwrite(inputFolderName + "/match.jpg", img_RR_matches);
+
+
+
+
+        
+
     }
     catch (Exception& e)
     {
@@ -238,4 +289,3 @@ int main(int argc, char** argv)
 
     return 0;
 }
-
